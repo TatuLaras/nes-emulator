@@ -48,29 +48,30 @@ IGNORE = `grep -s IGNORE $(PATHR)*.txt`
 # Build without tests
 SRC = $(wildcard src/*.c)
 
-debug: nes_debug
-release: nes_release
 
+debug: $(PATHB) $(PATHB)nes_debug
+release: $(PATHB) $(PATHB)nes_release
 
-nes_debug: $(SRC)
+run: debug
+	$(PATHB)nes_debug
+
+$(PATHB)nes_debug: $(SRC)
 	@echo "Building debug build"
-	$(CC) -o build/$@ $^ $(CFLAGS_DEBUG)
+	$(CC) -o $@ $^ $(CFLAGS_DEBUG)
 
-nes_release: $(SRC)
+$(PATHB)nes_release: $(SRC)
 	@echo "Building release build"
-	$(CC) -o build/$@ $^ $(CFLAGS_RELEASE)
+	$(CC) -o $@ $^ $(CFLAGS_RELEASE)
 
-run: nes_debug
-	build/nes_debug
 
 test: $(BUILD_PATHS) $(RESULTS)
-	@echo "-----------------------\nIGNORES:\n-----------------------"
+	@echo -e "-----------------------\nIGNORES:\n-----------------------"
 	@echo "$(IGNORE)"
-	@echo "-----------------------\nFAILURES:\n-----------------------"
+	@echo -e "-----------------------\nFAILURES:\n-----------------------"
 	@echo "$(FAIL)"
-	@echo "-----------------------\nPASSED:\n-----------------------"
+	@echo -e "-----------------------\nPASSED:\n-----------------------"
 	@echo "$(PASSED)"
-	@echo "\nDONE"
+	@echo -e "\nDONE"
 
 $(PATHR)%.txt: $(PATHB)%.$(TARGET_EXTENSION)
 	-./$< > $@ 2>&1
