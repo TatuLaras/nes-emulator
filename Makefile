@@ -46,6 +46,7 @@ FAIL = `grep -s FAIL $(PATHR)*.txt`
 IGNORE = `grep -s IGNORE $(PATHR)*.txt`
 
 # Build without tests
+
 SRC = $(wildcard src/*.c)
 
 
@@ -63,6 +64,7 @@ $(PATHB)nes_release: $(SRC)
 	@echo "Building release build"
 	$(CC) -o $@ $^ $(CFLAGS_RELEASE)
 
+# Build with tests
 
 test: $(BUILD_PATHS) $(RESULTS)
 	@echo -e "-----------------------\nIGNORES:\n-----------------------"
