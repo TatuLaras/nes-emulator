@@ -1,7 +1,10 @@
 #ifndef _CPU
 #define _CPU
 
+#include "decode_instruction.h"
+#include "memory.h"
 #include <stdint.h>
+#include <stdio.h>
 
 typedef struct {
     // Explanations from: https://dwheeler.com/6502/oneelkruns/asm1step.html
@@ -38,6 +41,7 @@ typedef struct {
     CPUStatusRegister status_register;
 } CPUContext;
 
-void tick();
+// Performs one CPU cycle
+int cpu_tick(CPUContext *ctx, Memory *memory);
 
 #endif

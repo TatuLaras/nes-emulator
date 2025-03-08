@@ -48,13 +48,14 @@ IGNORE = `grep -s IGNORE $(PATHR)*.txt`
 # Build without tests
 
 SRC = $(wildcard src/*.c)
+TARGET_CLI_ARGUMENTS = 
 
 
 debug: $(PATHB) $(PATHB)nes_debug
 release: $(PATHB) $(PATHB)nes_release
 
 run: debug
-	$(PATHB)nes_debug
+	$(PATHB)nes_debug $(TARGET_CLI_ARGUMENTS)
 
 $(PATHB)nes_debug: $(SRC)
 	@echo "Building debug build"

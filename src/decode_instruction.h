@@ -31,6 +31,7 @@ typedef enum {
 
 typedef struct {
     Mneumonic mneumonic;
+    char *mneumonic_str;
     AddressingMode addressing_mode;
     uint8_t bytes;
     uint8_t cycles;
