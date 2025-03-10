@@ -7,7 +7,7 @@ MKDIR = mkdir
 
 CC = gcc
 CFLAGS_DEBUG = -Wall -ggdb
-CFLAGS_TEST= -Wall -I$(UNITY_DIR) -I$(SRC_DIR) -DTEST
+CFLAGS_TEST= -Wall -ggdb -I$(UNITY_DIR) -I$(SRC_DIR) -DTEST
 CFLAGS= -Wall
 
 # Arguments to append to the program run with "make run"

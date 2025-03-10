@@ -26,7 +26,7 @@ static void print_cpu_context(CPUContext *ctx) {
 int cpu_tick(CPUContext *ctx, Memory *memory) {
     uint8_t opcode = memory_read(memory, ctx->program_counter);
 
-    //  TODO: Remove
+    // We want to exit if it's the BRK instruction / opcode 0
     if (!opcode)
         return 1;
 
@@ -34,9 +34,10 @@ int cpu_tick(CPUContext *ctx, Memory *memory) {
 
     printf("\n0x%x %s ", opcode, instruction.mneumonic_str);
     instruction_execute(instruction, ctx, memory);
-    print_cpu_context(ctx);
 
     ctx->program_counter += instruction.bytes;
+
+    print_cpu_context(ctx);
 
     return 0;
 }
