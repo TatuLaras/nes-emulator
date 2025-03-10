@@ -32,8 +32,8 @@ int cpu_tick(CPUContext *ctx, Memory *memory) {
 
     Instruction instruction = decode_instruction(opcode);
 
-    printf("\n0x%x %s\n", opcode, instruction.mneumonic_str);
-    instruction_run(instruction, ctx, memory);
+    printf("\n0x%x %s ", opcode, instruction.mneumonic_str);
+    instruction_execute(instruction, ctx, memory);
     print_cpu_context(ctx);
 
     ctx->program_counter += instruction.bytes;

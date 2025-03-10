@@ -1,119 +1,64 @@
-# From: https://www.throwtheswitch.org/build/make
-
-ifeq ($(OS),Windows_NT)
-  ifeq ($(shell uname -s),) # not in a bash-like shell
-	CLEANUP = del /F /Q
-	MKDIR = mkdir
-  else # in a bash-like shell, like msys
-	CLEANUP = rm -f
-	MKDIR = mkdir -p
-  endif
-	TARGET_EXTENSION=exe
-else
-	CLEANUP = rm -f
-	MKDIR = mkdir -p
-	TARGET_EXTENSION=out
-endif
-
-.PHONY: clean
-.PHONY: test
-
-PATHU = external/unity/
-PATHS = src/
-PATHT = test/
-PATHB = build/
-PATHD = build/depends/
-PATHO = build/objs/
-PATHR = build/results/
-
-BUILD_PATHS = $(PATHB) $(PATHD) $(PATHO) $(PATHR)
-
-SRCT = $(wildcard $(PATHT)*.c)
-
-COMPILE=gcc -c
-LINK=gcc
-DEPEND=gcc -MM -MG -MF
-CFLAGS=-I. -I$(PATHU) -I$(PATHS) -DTEST
+BUILD_DIR = build
+BUILD_DIR_TESTS = build/tests
+SRC_DIR = src
+SRC_DIR_TESTS = test
+UNITY_DIR = external/unity
+MKDIR = mkdir
 
 CC = gcc
-CFLAGS_DEBUG = -Wall -ggdb -lm
-CFLAGS_RELEASE = -Wall -lm
+CFLAGS_DEBUG = -Wall -ggdb
+CFLAGS_TEST= -Wall -I$(UNITY_DIR) -I$(SRC_DIR) -DTEST
+CFLAGS= -Wall
 
-RESULTS = $(patsubst $(PATHT)test_%.c,$(PATHR)test_%.txt,$(SRCT) )
+# Arguments to append to the program run with "make run"
+APPEND_ARGS = 
 
-PASSED = `grep -s PASS $(PATHR)*.txt`
-FAIL = `grep -s FAIL $(PATHR)*.txt`
-IGNORE = `grep -s IGNORE $(PATHR)*.txt`
+# Build program
 
-# Build without tests
-
-SRC = $(wildcard src/*.c)
-TARGET_CLI_ARGUMENTS = 
+SRC = $(wildcard $(SRC_DIR)/*.c)
 
 
-debug: $(PATHB) $(PATHB)nes_debug
-release: $(PATHB) $(PATHB)nes_release
+debug: $(BUILD_DIR) $(BUILD_DIR)/debug
+release: $(BUILD_DIR) $(BUILD_DIR)/release
 
-run: debug
-	$(PATHB)nes_debug $(TARGET_CLI_ARGUMENTS)
+run: $(BUILD_DIR) $(BUILD_DIR)/debug
+	$(BUILD_DIR)/debug $(APPEND_ARGS)
 
-$(PATHB)nes_debug: $(SRC)
+$(BUILD_DIR)/debug: $(SRC)
 	@echo "Building debug build"
 	$(CC) -o $@ $^ $(CFLAGS_DEBUG)
 
-$(PATHB)nes_release: $(SRC)
+$(BUILD_DIR)/release: $(SRC)
 	@echo "Building release build"
-	$(CC) -o $@ $^ $(CFLAGS_RELEASE)
+	$(CC) -o $@ $^ $(CFLAGS)
 
-# Build with tests
+$(BUILD_DIR):
+	$(MKDIR) -p $(BUILD_DIR)
 
-test: $(BUILD_PATHS) $(RESULTS)
-	@echo -e "-----------------------\nIGNORES:\n-----------------------"
-	@echo "$(IGNORE)"
-	@echo -e "-----------------------\nFAILURES:\n-----------------------"
-	@echo "$(FAIL)"
-	@echo -e "-----------------------\nPASSED:\n-----------------------"
-	@echo "$(PASSED)"
-	@echo -e "\nDONE"
+$(BUILD_DIR_TESTS):
+	$(MKDIR) -p $(BUILD_DIR_TESTS)
 
-$(PATHR)%.txt: $(PATHB)%.$(TARGET_EXTENSION)
-	-./$< > $@ 2>&1
 
-$(PATHB)test_%.$(TARGET_EXTENSION): $(PATHO)test_%.o $(PATHO)%.o $(PATHO)unity.o #$(PATHD)test_%.d
-	$(LINK) -o $@ $^
+# Build and run tests
 
-$(PATHO)%.o:: $(PATHT)%.c
-	$(COMPILE) $(CFLAGS) $< -o $@
+SRC_FOR_TESTS = $(filter-out $(SRC_DIR)/main.c, $(SRC)) $(wildcard $(UNITY_DIR)/*.c)
+OBJS_TESTS = $(patsubst $(SRC_DIR_TESTS)/%.c, $(BUILD_DIR_TESTS)/%.o, $(wildcard $(SRC_DIR_TESTS)/test_*.c))
 
-$(PATHO)%.o:: $(PATHS)%.c
-	$(COMPILE) $(CFLAGS) $< -o $@
+test: $(BUILD_DIR_TESTS) run_tests
+	@echo
 
-$(PATHO)%.o:: $(PATHU)%.c $(PATHU)%.h
-	$(COMPILE) $(CFLAGS) $< -o $@
+NOOP=
+SPACE = $(NOOP) $(NOOP)
 
-$(PATHD)%.d:: $(PATHT)%.c
-	$(DEPEND) $@ $<
+run_tests: $(OBJS_TESTS)
+	@echo -e "\n\n--------------\n Test results\n--------------\n"
+	@$(subst $(SPACE), && echo -e "\n" && ,$^)
 
-$(PATHB):
-	$(MKDIR) $(PATHB)
-
-$(PATHD):
-	$(MKDIR) $(PATHD)
-
-$(PATHO):
-	$(MKDIR) $(PATHO)
-
-$(PATHR):
-	$(MKDIR) $(PATHR)
+$(OBJS_TESTS): $(BUILD_DIR_TESTS)/%.o: $(SRC_DIR_TESTS)/%.c $(SRC_FOR_TESTS)
+	@echo -e "\nBuilding $@"
+	$(CC) -o $@ $^ $(CFLAGS_TEST)
 
 clean:
-	$(CLEANUP) $(PATHO)*.o
-	$(CLEANUP) $(PATHB)*.$(TARGET_EXTENSION)
-	$(CLEANUP) $(PATHR)*.txt
-	$(CLEANUP) $(PATHO)nes_debug
-	$(CLEANUP) $(PATHO)nes_release
+	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR_TESTS)
 
-.PRECIOUS: $(PATHB)test_%.$(TARGET_EXTENSION)
-.PRECIOUS: $(PATHD)%.d
-.PRECIOUS: $(PATHO)%.o
-.PRECIOUS: $(PATHR)%.txt

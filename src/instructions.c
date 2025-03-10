@@ -1,5 +1,6 @@
 #include "instructions.h"
-#include "cpu.h"
+
+// ----- Instructions start -----
 
 void sec(CPUContext *ctx) {
     ctx->status_register.carry = 1;
@@ -9,13 +10,78 @@ void clc(CPUContext *ctx) {
     ctx->status_register.carry = 0;
 }
 
-void instruction_run(Instruction instruction, CPUContext *ctx, Memory *memory) {
+void lda(uint8_t param, CPUContext *ctx, Memory *memory) {
+    ctx->a = param;
+}
+
+void adc(uint8_t param, CPUContext *ctx) {
+    param += ctx->status_register.carry;
+    uint8_t unsigned_result = param + ctx->a;
+    int8_t result = (int8_t)param + (int8_t)ctx->a;
+
+    // Check if operations overflow for flag setting purposes
+    int unsigned_overflow =
+        unsigned_result < ctx->a || (unsigned_result == ctx->a && param > 0);
+
+    int signed_overflow =
+        (param > 0 && result < ctx->a) || (param < 0 && result > ctx->a);
+
+    ctx->a = result;
+
+    // Set flags
+    ctx->status_register.carry = unsigned_overflow;
+    ctx->status_register.overflow = signed_overflow;
+    ctx->status_register.zero = result == 0;
+    ctx->status_register.negative = (result & 0b10000000) > 0;
+}
+
+// ----- Instructions end -----
+
+// Uses the instruction's addressing mode to get the parameter for the
+// instruction.
+static uint8_t get_parameter(AddressingMode addressing_mode, CPUContext *ctx,
+                             Memory *memory) {
+    switch (addressing_mode) {
+    case IMMEDIATE:
+        return memory_read(memory, ctx->program_counter + 1);
+
+    case IMPLIED:
+        return 0;
+
+    case INDIRECT_ABSOLUTE:
+    case ABSOLUTE:
+    case ABSOLUTE_INDEXED_X:
+    case ABSOLUTE_INDEXED_Y:
+    case ZERO_PAGE:
+    case ZERO_PAGE_INDEXED_X:
+    case ZERO_PAGE_INDEXED_Y:
+    case INDEXED_INDIRECT:
+    case INDIRECT_INDEXED:
+    case RELATIVE:
+    case ACCUMULATOR:
+        fprintf(stderr, "Unsupported 6502 addressing mode %d\n",
+                addressing_mode);
+        abort();
+    }
+
+    return 0;
+}
+
+void instruction_execute(Instruction instruction, CPUContext *ctx,
+                         Memory *memory) {
+    uint8_t param = get_parameter(instruction.addressing_mode, ctx, memory);
+    printf("0x%x\n", param);
+
     switch (instruction.mneumonic) {
     case SEC:
         sec(ctx);
         break;
     case CLC:
         clc(ctx);
+        break;
+
+    case LDA:
+        lda(param, ctx, memory);
         break;
 
     case ADC:
@@ -46,7 +112,6 @@ void instruction_run(Instruction instruction, CPUContext *ctx, Memory *memory) {
     case INY:
     case JMP:
     case JSR:
-    case LDA:
     case LDX:
     case LDY:
     case LSR:
@@ -72,6 +137,8 @@ void instruction_run(Instruction instruction, CPUContext *ctx, Memory *memory) {
     case TXA:
     case TXS:
     case TYA:
+        fprintf(stderr, "Unsupported 6502 instruction\n");
+        abort();
         break;
     }
 }
