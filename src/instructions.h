@@ -13,21 +13,67 @@
 void instruction_execute(Instruction instruction, CPUContext *ctx,
                          Memory *memory);
 
+// 6502 Instruction set:
+
+// Set status register decimal mode flag.
+void sed(CPUContext *ctx);
 // Set status register carry flag.
 void sec(CPUContext *ctx);
+// Set status register interrupt disable flag.
+void sei(CPUContext *ctx);
+// Clear status register decimal mode flag.
+void cld(CPUContext *ctx);
 // Clear status register carry flag.
 void clc(CPUContext *ctx);
+// Clear interrupt disable flag.
+void cli(CPUContext *ctx);
 // Load into A register.
 void lda(uint8_t param, CPUContext *ctx);
+// Load into X register.
+void ldx(uint8_t param, CPUContext *ctx);
+// Load into Y register.
+void ldy(uint8_t param, CPUContext *ctx);
 // Add with carry.
 void adc(uint8_t param, CPUContext *ctx);
 // Subtract with carry.
 void sbc(uint8_t param, CPUContext *ctx);
 // AND memory with A register.
 void and (uint8_t param, CPUContext *ctx);
-// Jump (set program counter) to an `address` either directly given in the
-// instruction or the address in a `memory` location pointed to by that
-// `address`.
-void jmp(uint16_t address, int is_indirect, CPUContext *ctx, Memory *memory);
+// Set program counter to `address`.
+void jmp(uint16_t address, CPUContext *ctx);
+// Transfer X -> stack pointer
+void txs(CPUContext *ctx);
+// Transfer stack pointer -> X
+void tsx(CPUContext *ctx);
+// Transfer accumulator -> X
+void tax(CPUContext *ctx);
+// Transfer accumulator -> Y
+void tay(CPUContext *ctx);
+// Transfer X -> accumulator
+void txa(CPUContext *ctx);
+// Transfer Y -> accumulator
+void tya(CPUContext *ctx);
+// Push A register to stack
+void pha(CPUContext *ctx, Memory *memory);
+// Push status register to stack with bit 5 and break flag set.
+void php(CPUContext *ctx, Memory *memory);
+// Pull A register from stack
+void pla(CPUContext *ctx, Memory *memory);
+// Pull status register from stack.
+void plp(CPUContext *ctx, Memory *memory);
+// Store A register in memory
+void sta(uint16_t address, CPUContext *ctx, Memory *memory);
+// Store X register in memory
+void stx(uint16_t address, CPUContext *ctx, Memory *memory);
+// Store Y register in memory
+void sty(uint16_t address, CPUContext *ctx, Memory *memory);
+// Decrement X register
+void dex(CPUContext *ctx);
+// Decrement Y register
+void dey(CPUContext *ctx);
+// Increment X register
+void inx(CPUContext *ctx);
+// Increment Y register
+void iny(CPUContext *ctx);
 
 #endif

@@ -19,6 +19,9 @@ typedef struct {
     int chr_rom_size;
 } Memory;
 
+// Returns a pointer to a location in `memory`.
+uint8_t *memory_get_pointer(Memory *memory, uint16_t address);
+
 uint8_t memory_read(Memory *memory, uint16_t address);
 void memory_write(Memory *memory, uint16_t address, char data);
 

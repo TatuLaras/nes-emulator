@@ -6,7 +6,7 @@ UNITY_DIR = external/unity
 MKDIR = mkdir
 
 CC = gcc
-CFLAGS_DEBUG = -Wall -ggdb
+CFLAGS_DEBUG = -Wall -ggdb -DDEBUG
 CFLAGS_TEST= -Wall -ggdb -I$(UNITY_DIR) -I$(SRC_DIR) -DTEST
 CFLAGS= -Wall
 

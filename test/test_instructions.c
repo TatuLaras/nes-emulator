@@ -24,23 +24,54 @@ static void assert_flags_equal(CPUStatusRegister a, CPUStatusRegister b) {
     TEST_ASSERT_EQUAL(a.zero, b.zero);
 }
 
-void test_sec() {
+void test_flag_setting() {
+    sed(&ctx);
     sec(&ctx);
-    CPUStatusRegister expected = {.carry = 1};
-    assert_flags_equal(expected, ctx.status_register);
-}
+    sei(&ctx);
 
-void test_clc() {
-    sec(&ctx);
+    CPUStatusRegister expected = {
+        .carry = 1, .irq_disable = 1, .decimal_mode = 1};
+    assert_flags_equal(expected, ctx.status_register);
+
+    cld(&ctx);
     clc(&ctx);
+    cli(&ctx);
 
-    CPUStatusRegister expected = {0};
+    expected.value = 0;
     assert_flags_equal(expected, ctx.status_register);
 }
 
-void test_lda() {
+void test_load_register() {
     lda(123, &ctx);
+    ldx(174, &ctx);
+    ldy(28, &ctx);
+
     TEST_ASSERT_EQUAL(123, ctx.a);
+    TEST_ASSERT_EQUAL(174, ctx.x);
+    TEST_ASSERT_EQUAL(28, ctx.y);
+}
+
+void test_register_transfers() {
+    lda(143, &ctx);
+
+    tax(&ctx);
+    TEST_ASSERT_EQUAL(143, ctx.x);
+    tay(&ctx);
+    TEST_ASSERT_EQUAL(143, ctx.y);
+
+    ldx(21, &ctx);
+    txa(&ctx);
+    TEST_ASSERT_EQUAL(21, ctx.a);
+    txs(&ctx);
+    TEST_ASSERT_EQUAL(21, ctx.stack_pointer);
+
+    ldy(53, &ctx);
+    tya(&ctx);
+    TEST_ASSERT_EQUAL(53, ctx.a);
+
+    ctx.stack_pointer = 83;
+    tsx(&ctx);
+    TEST_ASSERT_EQUAL(83, ctx.x);
 }
 
 void test_adc() {
@@ -111,17 +142,62 @@ void test_jmp() {
     assert_flags_equal(expected, ctx.status_register);
 }
 
+void test_stack_instructions() {
+    // void php(CPUContext *ctx, Memory *memory);
+    // void plp(CPUContext *ctx, Memory *memory);
+
+    // A register
+
+    // Push
+    lda(4, &ctx);
+    pha(&ctx, &memory);
+    lda(5, &ctx);
+    pha(&ctx, &memory);
+    lda(6, &ctx);
+    pha(&ctx, &memory);
+    lda(7, &ctx);
+    pha(&ctx, &memory);
+
+    lda(0, &ctx);
+
+    // Pull
+
+    pla(&ctx, &memory);
+    TEST_ASSERT_EQUAL(ctx.a, 7);
+    pla(&ctx, &memory);
+    TEST_ASSERT_EQUAL(ctx.a, 6);
+    pla(&ctx, &memory);
+    TEST_ASSERT_EQUAL(ctx.a, 5);
+    pla(&ctx, &memory);
+    TEST_ASSERT_EQUAL(ctx.a, 4);
+
+    // Status register
+    ctx.status_register.value = 0b10001010;
+    php(&ctx, &memory);
+    ctx.status_register.value = 0b00000101;
+    php(&ctx, &memory);
+
+    ctx.status_register.value = 0;
+
+    // Bits 4 and 5 get set by the php instruction
+    plp(&ctx, &memory);
+    TEST_ASSERT_EQUAL(0b00110101, ctx.status_register.value);
+    plp(&ctx, &memory);
+    TEST_ASSERT_EQUAL(0b10111010, ctx.status_register.value);
+}
+
 int main() {
     UNITY_BEGIN();
 
-    RUN_TEST(test_sec);
-    RUN_TEST(test_clc);
-    RUN_TEST(test_lda);
+    RUN_TEST(test_flag_setting);
+    RUN_TEST(test_load_register);
     RUN_TEST(test_adc);
     RUN_TEST(test_adc_overflow);
     RUN_TEST(test_sbc);
     RUN_TEST(test_and);
     RUN_TEST(test_jmp);
+    RUN_TEST(test_register_transfers);
+    RUN_TEST(test_stack_instructions);
 
     return UNITY_END();
 }
