@@ -23,6 +23,6 @@ typedef struct {
 uint8_t *memory_get_pointer(Memory *memory, uint16_t address);
 
 uint8_t memory_read(Memory *memory, uint16_t address);
-void memory_write(Memory *memory, uint16_t address, char data);
+void memory_write(Memory *memory, uint16_t address, uint8_t data);
 
 #endif

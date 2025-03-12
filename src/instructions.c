@@ -17,17 +17,21 @@ static inline uint16_t read_address(uint16_t address, Memory *memory) {
 // Gets final `memory` location of instruction parameter depending on the
 // `addressing_mode`.
 static uint16_t translate_address(AddressingMode addressing_mode,
-                                  CPUContext *ctx, Memory *memory) {
+                                  uint16_t instruction_address, CPUContext *ctx,
+                                  Memory *memory) {
     switch (addressing_mode) {
     case IMMEDIATE:
-        return ctx->program_counter + 1;
+        return instruction_address + 1;
     case IMPLIED:
         return 0;
     case ABSOLUTE:
-        return read_address(ctx->program_counter + 1, memory);
+        return read_address(instruction_address + 1, memory);
     case INDIRECT_ABSOLUTE:
-        return read_address(read_address(ctx->program_counter + 1, memory),
+        return read_address(read_address(instruction_address + 1, memory),
                             memory);
+    case RELATIVE:
+        return ctx->program_counter +
+               (int8_t)memory_read(memory, instruction_address + 1);
 
     case ABSOLUTE_INDEXED_X:
     case ABSOLUTE_INDEXED_Y:
@@ -36,7 +40,6 @@ static uint16_t translate_address(AddressingMode addressing_mode,
     case ZERO_PAGE_INDEXED_Y:
     case INDEXED_INDIRECT:
     case INDIRECT_INDEXED:
-    case RELATIVE:
     case ACCUMULATOR:
         fprintf(stderr, "Unsupported 6502 addressing mode %d\n",
                 addressing_mode);
@@ -44,6 +47,10 @@ static uint16_t translate_address(AddressingMode addressing_mode,
     }
 
     return 0;
+}
+
+static inline void branch(uint16_t address, CPUContext *ctx) {
+    ctx->program_counter = address;
 }
 
 static void push_to_stack(uint8_t value, CPUContext *ctx, Memory *memory) {
@@ -121,11 +128,7 @@ void and (uint8_t param, CPUContext *ctx) {
 }
 
 void jmp(uint16_t address, CPUContext *ctx) {
-    // The program counter will get incremented after this in the execution loop
-    // so we counteract that by subtracting the amount that it will be
-    // incremented by
-    const uint16_t JMP_INSTRUCTION_BYTES = 3;
-    ctx->program_counter = address - JMP_INSTRUCTION_BYTES;
+    ctx->program_counter = address;
 }
 
 void txs(CPUContext *ctx) {
@@ -196,11 +199,30 @@ void iny(CPUContext *ctx) {
     ctx->y++;
 }
 
-void instruction_execute(Instruction instruction, CPUContext *ctx,
-                         Memory *memory) {
+void dec(uint16_t address, Memory *memory) {
+    memory_write(memory, address, memory_read(memory, address) - 1);
+}
 
-    uint16_t param_address =
-        translate_address(instruction.addressing_mode, ctx, memory);
+void inc(uint16_t address, Memory *memory) {
+    memory_write(memory, address, memory_read(memory, address) + 1);
+}
+
+void bit(uint8_t param, CPUContext *ctx) {
+    ctx->status_register.negative = (param & 0b10000000) > 0;
+    ctx->status_register.overflow = (param & 0b01000000) > 0;
+    ctx->status_register.zero = (param & ctx->a) == 0;
+}
+
+void bpl(uint16_t address, CPUContext *ctx) {
+    if (!ctx->status_register.negative)
+        branch(address, ctx);
+}
+
+void instruction_execute(Instruction instruction, uint16_t instruction_address,
+                         CPUContext *ctx, Memory *memory) {
+
+    uint16_t param_address = translate_address(
+        instruction.addressing_mode, instruction_address, ctx, memory);
 
     // Included here for brevity for instructions that don't store anything to
     // memory, wont need to add a memory_read to every instruction
@@ -288,8 +310,19 @@ void instruction_execute(Instruction instruction, CPUContext *ctx,
     case INY:
         iny(ctx);
         break;
-
+    case DEC:
+        dec(param_address, memory);
+        break;
+    case INC:
+        inc(param_address, memory);
+        break;
+    case BIT:
+        bit(param_value, ctx);
+        break;
     case BPL:
+        bpl(param_address, ctx);
+        break;
+
     case BRK:
     case BVC:
     case BVS:
@@ -297,9 +330,7 @@ void instruction_execute(Instruction instruction, CPUContext *ctx,
     case CMP:
     case CPX:
     case CPY:
-    case DEC:
     case EOR:
-    case INC:
     case JSR:
     case LSR:
     case NOP:
@@ -316,7 +347,6 @@ void instruction_execute(Instruction instruction, CPUContext *ctx,
     case BCC:
     case BCS:
     case BEQ:
-    case BIT:
     case BMI:
     case BNE:
         fprintf(stderr, "Unsupported 6502 instruction \"%s\"\n",

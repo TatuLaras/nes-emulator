@@ -10,8 +10,8 @@
 
 // Executes an `Instruction` updating the `CPUContext` and `Memory`
 // appropriately.
-void instruction_execute(Instruction instruction, CPUContext *ctx,
-                         Memory *memory);
+void instruction_execute(Instruction instruction, uint16_t instruction_address,
+                         CPUContext *ctx, Memory *memory);
 
 // 6502 Instruction set:
 
@@ -75,5 +75,13 @@ void dey(CPUContext *ctx);
 void inx(CPUContext *ctx);
 // Increment Y register
 void iny(CPUContext *ctx);
+// Decrement memory
+void dec(uint16_t address, Memory *memory);
+// Increment memory
+void inc(uint16_t address, Memory *memory);
+// Test bits
+void bit(uint8_t param, CPUContext *ctx);
+// Branch on status register flag negative == 0
+void bpl(uint16_t address, CPUContext *ctx);
 
 #endif

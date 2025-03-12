@@ -128,15 +128,8 @@ void test_and() {
 }
 
 void test_jmp() {
-    // Direct
-    jmp(0x8014, 0, &ctx, &memory);
+    jmp(0x8014, &ctx);
     TEST_ASSERT_EQUAL(0x8014 - 3, ctx.program_counter);
-
-    // Indirect
-    memory.ram[0x32] = 0x54;
-    memory.ram[0x32 + 1] = 0x80;
-    jmp(0x32, 1, &ctx, &memory);
-    TEST_ASSERT_EQUAL(0x8054 - 3, ctx.program_counter);
 
     CPUStatusRegister expected = {0};
     assert_flags_equal(expected, ctx.status_register);
@@ -186,6 +179,56 @@ void test_stack_instructions() {
     TEST_ASSERT_EQUAL(0b10111010, ctx.status_register.value);
 }
 
+void test_store_registers() {
+    lda(14, &ctx);
+    ldx(17, &ctx);
+    ldy(23, &ctx);
+
+    sta(0x01, &ctx, &memory);
+    stx(0x06, &ctx, &memory);
+    sty(0x0a, &ctx, &memory);
+
+    TEST_ASSERT_EQUAL(14, memory_read(&memory, 0x01));
+    TEST_ASSERT_EQUAL(17, memory_read(&memory, 0x06));
+    TEST_ASSERT_EQUAL(23, memory_read(&memory, 0x0a));
+}
+
+void test_increment_decrement() {
+    ldx(17, &ctx);
+    ldy(23, &ctx);
+    memory_write(&memory, 0x6b, 12);
+
+    dex(&ctx);
+    TEST_ASSERT_EQUAL(16, ctx.x);
+    dey(&ctx);
+    TEST_ASSERT_EQUAL(22, ctx.y);
+    dec(0x6b, &memory);
+    TEST_ASSERT_EQUAL(11, memory_read(&memory, 0x6b));
+
+    inx(&ctx);
+    TEST_ASSERT_EQUAL(17, ctx.x);
+    iny(&ctx);
+    TEST_ASSERT_EQUAL(23, ctx.y);
+    inc(0x6b, &memory);
+    TEST_ASSERT_EQUAL(12, memory_read(&memory, 0x6b));
+}
+
+void test_bit() {
+    bit(0b10000000, &ctx);
+    TEST_ASSERT(ctx.status_register.negative);
+    TEST_ASSERT_FALSE(ctx.status_register.overflow);
+
+    bit(0b01000000, &ctx);
+    TEST_ASSERT_FALSE(ctx.status_register.negative);
+    TEST_ASSERT(ctx.status_register.overflow);
+
+    lda(0b00101010, &ctx);
+    bit(0b11010101, &ctx);
+    TEST_ASSERT(ctx.status_register.zero);
+    bit(0b11110101, &ctx);
+    TEST_ASSERT_FALSE(ctx.status_register.zero);
+}
+
 int main() {
     UNITY_BEGIN();
 
@@ -198,6 +241,9 @@ int main() {
     RUN_TEST(test_jmp);
     RUN_TEST(test_register_transfers);
     RUN_TEST(test_stack_instructions);
+    RUN_TEST(test_store_registers);
+    RUN_TEST(test_increment_decrement);
+    RUN_TEST(test_bit);
 
     return UNITY_END();
 }

@@ -1,5 +1,6 @@
 #include "cpu.h"
 #include "instructions.h"
+#include <stdint.h>
 #include <stdio.h>
 
 static void print_cpu_context(CPUContext *ctx) {
@@ -27,15 +28,17 @@ int cpu_tick(CPUContext *ctx, Memory *memory) {
     uint8_t opcode = memory_read(memory, ctx->program_counter);
 
     // We want to exit if it's the BRK instruction / opcode 0
-    if (!opcode)
+    if (!opcode) {
+        printf("BRK instruction, exiting...\n");
         return 1;
-
+    }
     Instruction instruction = decode_instruction(opcode);
-
-    printf("\n0x%x %s ", opcode, instruction.mneumonic_str);
-    instruction_execute(instruction, ctx, memory);
+    uint16_t instruction_address = ctx->program_counter;
 
     ctx->program_counter += instruction.bytes;
+
+    printf("\n0x%x %s ", opcode, instruction.mneumonic_str);
+    instruction_execute(instruction, instruction_address, ctx, memory);
 
     print_cpu_context(ctx);
 

@@ -19,7 +19,7 @@ uint8_t memory_read(Memory *memory, uint16_t address) {
     return *pointer;
 }
 
-void memory_write(Memory *memory, uint16_t address, char data) {
+void memory_write(Memory *memory, uint16_t address, uint8_t data) {
     if (address <= 0x1fff)
         memory->ram[address % MEMORY_RAM_SIZE] = data;
 }
