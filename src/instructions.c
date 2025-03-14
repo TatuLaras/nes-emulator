@@ -1,5 +1,6 @@
 #include "instructions.h"
 #include "cpu.h"
+#include "decode_instruction.h"
 #include "memory.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -8,7 +9,7 @@
 
 // Gets 2-byte address (or value) starting at memory address `address`, low byte
 // first.
-static inline uint16_t read_address(uint16_t address, Memory *memory) {
+static inline uint16_t read_two_bytes(uint16_t address, Memory *memory) {
     uint8_t low = memory_read(memory, address);
     uint8_t high = memory_read(memory, address + 1);
     return high << 8 | low;
@@ -16,31 +17,37 @@ static inline uint16_t read_address(uint16_t address, Memory *memory) {
 
 // Gets final `memory` location of instruction parameter depending on the
 // `addressing_mode`.
-static uint16_t translate_address(AddressingMode addressing_mode,
-                                  uint16_t instruction_address, CPUContext *ctx,
-                                  Memory *memory) {
+static uint16_t get_effective_address(AddressingMode addressing_mode,
+                                      uint16_t instruction_address,
+                                      CPUContext *ctx, Memory *memory) {
     switch (addressing_mode) {
-    case IMMEDIATE:
-        return instruction_address + 1;
+    case ACCUMULATOR:
     case IMPLIED:
         return 0;
+
+    case IMMEDIATE:
+        return instruction_address + 1;
     case ABSOLUTE:
-        return read_address(instruction_address + 1, memory);
+        return read_two_bytes(instruction_address + 1, memory);
     case INDIRECT_ABSOLUTE:
-        return read_address(read_address(instruction_address + 1, memory),
-                            memory);
+        return read_two_bytes(read_two_bytes(instruction_address + 1, memory),
+                              memory);
+    case ZERO_PAGE:
+        return memory_read(memory, instruction_address + 1);
+    case ZERO_PAGE_INDEXED_X:
+        return (memory_read(memory, instruction_address + 1) + ctx->x) % 0x100;
+    case ZERO_PAGE_INDEXED_Y:
+        return (memory_read(memory, instruction_address + 1) + ctx->y) % 0x100;
     case RELATIVE:
         return ctx->program_counter +
                (int8_t)memory_read(memory, instruction_address + 1);
-
     case ABSOLUTE_INDEXED_X:
+        return read_two_bytes(instruction_address + 1, memory) + ctx->x;
     case ABSOLUTE_INDEXED_Y:
-    case ZERO_PAGE:
-    case ZERO_PAGE_INDEXED_X:
-    case ZERO_PAGE_INDEXED_Y:
+        return read_two_bytes(instruction_address + 1, memory) + ctx->y;
+
     case INDEXED_INDIRECT:
     case INDIRECT_INDEXED:
-    case ACCUMULATOR:
         fprintf(stderr, "Unsupported 6502 addressing mode %d\n",
                 addressing_mode);
         abort();
@@ -59,6 +66,13 @@ static void push_to_stack(uint8_t value, CPUContext *ctx, Memory *memory) {
 
 static uint8_t pull_from_stack(CPUContext *ctx, Memory *memory) {
     return memory_read(memory, 0x0100 | ++ctx->stack_pointer);
+}
+
+// Sets flags as if subtraction was carried out
+static void compare(uint8_t a, uint8_t b, CPUContext *ctx) {
+    CPUContext temp = {.status_register.carry = 1, .a = a};
+    sbc(b, &temp);
+    ctx->status_register = temp.status_register;
 }
 
 // ----- Instructions -----
@@ -207,6 +221,18 @@ void inc(uint16_t address, Memory *memory) {
     memory_write(memory, address, memory_read(memory, address) + 1);
 }
 
+void cmp(uint8_t param, CPUContext *ctx) {
+    compare(ctx->a, param, ctx);
+}
+
+void cpx(uint8_t param, CPUContext *ctx) {
+    compare(ctx->x, param, ctx);
+}
+
+void cpy(uint8_t param, CPUContext *ctx) {
+    compare(ctx->y, param, ctx);
+}
+
 void bit(uint8_t param, CPUContext *ctx) {
     ctx->status_register.negative = (param & 0b10000000) > 0;
     ctx->status_register.overflow = (param & 0b01000000) > 0;
@@ -218,18 +244,22 @@ void bpl(uint16_t address, CPUContext *ctx) {
         branch(address, ctx);
 }
 
+void bne(uint16_t address, CPUContext *ctx) {
+    if (!ctx->status_register.zero)
+        branch(address, ctx);
+}
+
 void instruction_execute(Instruction instruction, uint16_t instruction_address,
                          CPUContext *ctx, Memory *memory) {
-
-    uint16_t param_address = translate_address(
+    uint16_t effective_address = get_effective_address(
         instruction.addressing_mode, instruction_address, ctx, memory);
 
     // Included here for brevity for instructions that don't store anything to
     // memory, wont need to add a memory_read to every instruction
     // implementation
-    uint8_t param_value = memory_read(memory, param_address);
+    uint8_t param_value = memory_read(memory, effective_address);
 
-    printf("0x%x at 0x%x\n", param_value, param_address);
+    printf("0x%x at 0x%x\n", param_value, effective_address);
 
     switch (instruction.mneumonic) {
     case SEC:
@@ -257,7 +287,7 @@ void instruction_execute(Instruction instruction, uint16_t instruction_address,
         and(param_value, ctx);
         break;
     case JMP:
-        jmp(param_address, ctx);
+        jmp(effective_address, ctx);
         break;
     case TXS:
         txs(ctx);
@@ -290,13 +320,13 @@ void instruction_execute(Instruction instruction, uint16_t instruction_address,
         cld(ctx);
         break;
     case STA:
-        sta(param_address, ctx, memory);
+        sta(effective_address, ctx, memory);
         break;
     case STX:
-        stx(param_address, ctx, memory);
+        stx(effective_address, ctx, memory);
         break;
     case STY:
-        sty(param_address, ctx, memory);
+        sty(effective_address, ctx, memory);
         break;
     case DEX:
         dex(ctx);
@@ -311,25 +341,34 @@ void instruction_execute(Instruction instruction, uint16_t instruction_address,
         iny(ctx);
         break;
     case DEC:
-        dec(param_address, memory);
+        dec(effective_address, memory);
         break;
     case INC:
-        inc(param_address, memory);
+        inc(effective_address, memory);
         break;
     case BIT:
         bit(param_value, ctx);
         break;
     case BPL:
-        bpl(param_address, ctx);
+        bpl(effective_address, ctx);
+        break;
+    case BNE:
+        bne(effective_address, ctx);
+        break;
+    case CMP:
+        cmp(param_value, ctx);
+        break;
+    case CPX:
+        cpx(param_value, ctx);
+        break;
+    case CPY:
+        cpy(param_value, ctx);
         break;
 
     case BRK:
     case BVC:
     case BVS:
     case CLV:
-    case CMP:
-    case CPX:
-    case CPY:
     case EOR:
     case JSR:
     case LSR:
@@ -348,7 +387,6 @@ void instruction_execute(Instruction instruction, uint16_t instruction_address,
     case BCS:
     case BEQ:
     case BMI:
-    case BNE:
         fprintf(stderr, "Unsupported 6502 instruction \"%s\"\n",
                 instruction.mneumonic_str);
         abort();

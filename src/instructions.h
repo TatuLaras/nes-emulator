@@ -83,5 +83,13 @@ void inc(uint16_t address, Memory *memory);
 void bit(uint8_t param, CPUContext *ctx);
 // Branch on status register flag negative == 0
 void bpl(uint16_t address, CPUContext *ctx);
+// Branch on status register flag zero == 0
+void bne(uint16_t address, CPUContext *ctx);
+// Compare memory with A register
+void cmp(uint8_t param, CPUContext *ctx);
+// Compare memory with X register
+void cpx(uint8_t param, CPUContext *ctx);
+// Compare memory with Y register
+void cpy(uint8_t param, CPUContext *ctx);
 
 #endif
