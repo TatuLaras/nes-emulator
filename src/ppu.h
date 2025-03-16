@@ -71,16 +71,61 @@ typedef union {
     uint8_t value;
 } PPUMask;
 
+#define PPU_MEMORY_PATTERN_TABLE_SIZE 0x1000
+#define PPU_MEMORY_NAMETABLE_SIZE 0x400
+#define PPU_MEMORY_PALETTE_SIZE 0x20
+#define PPU_MEMORY_CARTRIDGE_MAPPED_TOTAL_SIZE                                 \
+    (PPU_MEMORY_NAMETABLE_SIZE * 4 + PPU_MEMORY_PATTERN_TABLE_SIZE * 2)
+
 typedef struct {
-    uint8_t write_latch;
+    uint8_t palette[PPU_MEMORY_PALETTE_SIZE];
+
+    union {
+        struct {
+            uint8_t nametable_3[PPU_MEMORY_NAMETABLE_SIZE];
+            uint8_t nametable_2[PPU_MEMORY_NAMETABLE_SIZE];
+            uint8_t nametable_1[PPU_MEMORY_NAMETABLE_SIZE];
+            uint8_t nametable_0[PPU_MEMORY_NAMETABLE_SIZE];
+            uint8_t pattern_table_1[PPU_MEMORY_PATTERN_TABLE_SIZE];
+            uint8_t pattern_table_0[PPU_MEMORY_PATTERN_TABLE_SIZE];
+        };
+
+        uint8_t cartridge_mapped_memory[PPU_MEMORY_CARTRIDGE_MAPPED_TOTAL_SIZE];
+    };
+
+} PPUMemory;
+
+typedef struct {
+    PPUMemory memory;
     PPUStatus ppustatus;
     PPUCtrl ppuctrl;
     PPUMask ppumask;
+    uint8_t write_latch;
+    uint8_t scroll_x;
+    uint8_t scroll_y;
+    uint16_t address;
+
+    // Used to delay reads from PPUDATA by one.
+    uint8_t read_buffer;
 } PPUContext;
 
-uint8_t ppu_read_ppustatus(PPUContext *ppu_ctx);
+// Does one tick of the PPU.
+void ppu_tick(PPUContext *ppu_ctx);
 
+// Rendering events
+uint8_t ppu_read_ppustatus(PPUContext *ppu_ctx);
+// Read data from PPU memory at address `PPUContext.address` (delayed by one).
+uint8_t ppu_read_ppudata(PPUContext *ppu_ctx);
+
+// Miscellaneous settings
 void ppu_write_ppuctrl(uint8_t value, PPUContext *ppu_ctx);
+// Rendering settings
 void ppu_write_ppumask(uint8_t value, PPUContext *ppu_ctx);
+// Scroll position (takes 2 writes, x and y).
+void ppu_write_ppuscroll(uint8_t value, PPUContext *ppu_ctx);
+// PPU memory read/write address (takes 2 writes, high and low byte).
+void ppu_write_ppuaddr(uint8_t value, PPUContext *ppu_ctx);
+// Write data into PPU memory at address `PPUContext.address`.
+void ppu_write_ppudata(uint8_t value, PPUContext *ppu_ctx);
 
 #endif
