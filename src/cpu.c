@@ -3,6 +3,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#define EMULATOR_BREAKPOINT(address)                                           \
+    if (ctx->program_counter == address)                                       \
+        asm("int $3");
+
 static void print_cpu_context(CPUContext *ctx) {
     char status[9] = "________\0";
     if (ctx->status_register.negative)
@@ -24,7 +28,9 @@ static void print_cpu_context(CPUContext *ctx) {
            ctx->stack_pointer, ctx->program_counter, ctx->x, ctx->y, ctx->a);
 }
 
-int cpu_tick(CPUContext *ctx, Memory *memory) {
+int cpu_tick(CPUContext *ctx, Memory *memory, int nmi_needed) {
+    // EMULATOR_BREAKPOINT(0x805e);
+
     uint8_t opcode = memory_read(memory, ctx->program_counter);
 
     // We want to exit if it's the BRK instruction / opcode 0
@@ -41,6 +47,9 @@ int cpu_tick(CPUContext *ctx, Memory *memory) {
     instruction_execute(instruction, instruction_address, ctx, memory);
 
     print_cpu_context(ctx);
+
+    if (nmi_needed)
+        non_maskable_interrupt(ctx, memory);
 
     return 0;
 }

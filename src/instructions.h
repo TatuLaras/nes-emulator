@@ -13,6 +13,8 @@
 void instruction_execute(Instruction instruction, uint16_t instruction_address,
                          CPUContext *ctx, Memory *memory);
 
+void non_maskable_interrupt(CPUContext *ctx, Memory *memory);
+
 // 6502 Instruction set:
 
 // Set status register decimal mode flag.
@@ -91,5 +93,7 @@ void cmp(uint8_t param, CPUContext *ctx);
 void cpx(uint8_t param, CPUContext *ctx);
 // Compare memory with Y register
 void cpy(uint8_t param, CPUContext *ctx);
+// Return from interrupt handler
+void rti(CPUContext *ctx, Memory *memory);
 
 #endif

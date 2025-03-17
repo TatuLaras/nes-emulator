@@ -47,7 +47,9 @@ typedef struct {
     CPUStatusRegister status_register;
 } CPUContext;
 
-// Performs one CPU cycle
-int cpu_tick(CPUContext *ctx, Memory *memory);
+// Performs one CPU cycle.
+//
+// If `nmi_needed` is set, a Non-Maskable Interrupt is generated on the CPU.
+int cpu_tick(CPUContext *ctx, Memory *memory, int nmi_needed);
 
 #endif

@@ -6,12 +6,13 @@ UNITY_DIR = external/unity
 MKDIR = mkdir
 
 CC = gcc
-CFLAGS_DEBUG = -Wall -ggdb -DDEBUG
+PACKAGES = $(pkg-config --libs sdl3)
+CFLAGS_DEBUG = -Wall -ggdb -lSDL3 $(PACKAGES) -DDEBUG -I/usr/include/ 
 CFLAGS_TEST= -Wall -ggdb -I$(UNITY_DIR) -I$(SRC_DIR) -DTEST
-CFLAGS= -Wall
+CFLAGS= -Wall -I/usr/include/ $(PACKAGES)
 
 # Arguments to append to the program run with "make run"
-APPEND_ARGS = 
+ARGS = 
 
 # Build program
 
@@ -22,7 +23,7 @@ debug: $(BUILD_DIR) $(BUILD_DIR)/debug
 release: $(BUILD_DIR) $(BUILD_DIR)/release
 
 run: $(BUILD_DIR) $(BUILD_DIR)/debug
-	$(BUILD_DIR)/debug $(APPEND_ARGS)
+	$(BUILD_DIR)/debug $(ARGS)
 
 $(BUILD_DIR)/debug: $(SRC)
 	@echo "Building debug build"

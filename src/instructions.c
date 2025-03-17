@@ -75,6 +75,21 @@ static void compare(uint8_t a, uint8_t b, CPUContext *ctx) {
     ctx->status_register = temp.status_register;
 }
 
+void non_maskable_interrupt(CPUContext *ctx, Memory *memory) {
+    // Push program counter to stack, high byte first
+    push_to_stack(ctx->program_counter >> 8, ctx, memory);
+    push_to_stack(ctx->program_counter & 0xff, ctx, memory);
+
+    // Push status register
+    php(ctx, memory);
+
+    // Read nmi handler vector
+    uint16_t nmi_handler_address =
+        memory_read(memory, 0xfffb) << 8 | memory_read(memory, 0xfffa);
+
+    ctx->program_counter = nmi_handler_address;
+}
+
 // ----- Instructions -----
 
 void sed(CPUContext *ctx) {
@@ -249,15 +264,24 @@ void bne(uint16_t address, CPUContext *ctx) {
         branch(address, ctx);
 }
 
+void rti(CPUContext *ctx, Memory *memory) {
+    plp(ctx, memory);
+
+    uint8_t low = pull_from_stack(ctx, memory);
+    uint8_t high = pull_from_stack(ctx, memory);
+
+    ctx->program_counter = high << 8 | low;
+}
+
 void instruction_execute(Instruction instruction, uint16_t instruction_address,
                          CPUContext *ctx, Memory *memory) {
     uint16_t effective_address = get_effective_address(
         instruction.addressing_mode, instruction_address, ctx, memory);
 
-    // Included here for brevity for instructions that don't store anything to
-    // memory, wont need to add a memory_read to every instruction
-    // implementation
-    uint8_t param_value = memory_read(memory, effective_address);
+    // TODO: do this separately in the instructions
+    uint8_t param_value = 0;
+    if (effective_address != 0x2007)
+        param_value = memory_read(memory, effective_address);
 
     printf("0x%x at 0x%x\n", param_value, effective_address);
 
@@ -364,6 +388,9 @@ void instruction_execute(Instruction instruction, uint16_t instruction_address,
     case CPY:
         cpy(param_value, ctx);
         break;
+    case RTI:
+        rti(ctx, memory);
+        break;
 
     case BRK:
     case BVC:
@@ -376,7 +403,6 @@ void instruction_execute(Instruction instruction, uint16_t instruction_address,
     case ORA:
     case ROL:
     case ROR:
-    case RTI:
     case RTS:
     case TAX:
     case TAY:
