@@ -45,9 +45,12 @@ static uint16_t get_effective_address(AddressingMode addressing_mode,
         return read_two_bytes(instruction_address + 1, memory) + ctx->x;
     case ABSOLUTE_INDEXED_Y:
         return read_two_bytes(instruction_address + 1, memory) + ctx->y;
+    case INDIRECT_INDEXED: {
+        uint16_t address = memory_read(memory, instruction_address + 1);
+        return read_two_bytes(address, memory) + ctx->y;
+    }
 
     case INDEXED_INDIRECT:
-    case INDIRECT_INDEXED:
         fprintf(stderr, "Unsupported 6502 addressing mode %d\n",
                 addressing_mode);
         abort();
@@ -152,6 +155,12 @@ void sbc(uint8_t param, CPUContext *ctx) {
 
 void and (uint8_t param, CPUContext *ctx) {
     ctx->a &= param;
+    ctx->status_register.zero = ctx->a == 0;
+    ctx->status_register.negative = (ctx->a & 0b10000000) > 0;
+}
+
+void ora(uint8_t param, CPUContext *ctx) {
+    ctx->a |= param;
     ctx->status_register.zero = ctx->a == 0;
     ctx->status_register.negative = (ctx->a & 0b10000000) > 0;
 }
@@ -264,6 +273,16 @@ void bne(uint16_t address, CPUContext *ctx) {
         branch(address, ctx);
 }
 
+void bcs(uint16_t address, CPUContext *ctx) {
+    if (ctx->status_register.carry)
+        branch(address, ctx);
+}
+
+void bcc(uint16_t address, CPUContext *ctx) {
+    if (!ctx->status_register.carry)
+        branch(address, ctx);
+}
+
 void rti(CPUContext *ctx, Memory *memory) {
     plp(ctx, memory);
 
@@ -273,8 +292,55 @@ void rti(CPUContext *ctx, Memory *memory) {
     ctx->program_counter = high << 8 | low;
 }
 
+void rts(CPUContext *ctx, Memory *memory) {
+    uint8_t low = pull_from_stack(ctx, memory);
+    uint8_t high = pull_from_stack(ctx, memory);
+
+    ctx->program_counter = high << 8 | low;
+}
+
+void jsr(uint16_t address, CPUContext *ctx, Memory *memory) {
+    // Push program counter to stack, high byte first
+    push_to_stack(ctx->program_counter >> 8, ctx, memory);
+    push_to_stack(ctx->program_counter & 0xff, ctx, memory);
+
+    ctx->program_counter = address;
+}
+
+void asl(uint16_t address, int using_accumulator, CPUContext *ctx,
+         Memory *memory) {
+    if (using_accumulator) {
+        ctx->status_register.carry = (ctx->a & 0b10000000) > 0;
+        ctx->a <<= 1;
+        return;
+    }
+
+    uint8_t value = memory_read(memory, address);
+    ctx->status_register.carry = (value & 0b10000000) > 0;
+    value <<= 1;
+    memory_write(memory, address, value);
+}
+
+void lsr(uint16_t address, int using_accumulator, CPUContext *ctx,
+         Memory *memory) {
+    if (using_accumulator) {
+        ctx->status_register.carry = (ctx->a & 0b00000001) > 0;
+        ctx->a >>= 1;
+        return;
+    }
+
+    uint8_t value = memory_read(memory, address);
+    ctx->status_register.carry = (value & 0b10000001) > 0;
+    value >>= 1;
+    memory_write(memory, address, value);
+}
+
 void instruction_execute(Instruction instruction, uint16_t instruction_address,
                          CPUContext *ctx, Memory *memory) {
+    if (instruction.mneumonic == STA &&
+        instruction.addressing_mode == INDIRECT_INDEXED)
+        asm("int $3");
+
     uint16_t effective_address = get_effective_address(
         instruction.addressing_mode, instruction_address, ctx, memory);
 
@@ -313,8 +379,29 @@ void instruction_execute(Instruction instruction, uint16_t instruction_address,
     case JMP:
         jmp(effective_address, ctx);
         break;
+    case JSR:
+        jsr(effective_address, ctx, memory);
+        break;
+    case RTS:
+        rts(ctx, memory);
+        break;
     case TXS:
         txs(ctx);
+        break;
+    case TSX:
+        cli(ctx);
+        break;
+    case TAX:
+        txs(ctx);
+        break;
+    case TAY:
+        tay(ctx);
+        break;
+    case TXA:
+        txa(ctx);
+        break;
+    case TYA:
+        tya(ctx);
         break;
     case PHA:
         pha(ctx, memory);
@@ -330,9 +417,6 @@ void instruction_execute(Instruction instruction, uint16_t instruction_address,
         break;
     case PLP:
         plp(ctx, memory);
-        break;
-    case TSX:
-        cli(ctx);
         break;
     case SEI:
         sei(ctx);
@@ -379,6 +463,12 @@ void instruction_execute(Instruction instruction, uint16_t instruction_address,
     case BNE:
         bne(effective_address, ctx);
         break;
+    case BCS:
+        bcs(effective_address, ctx);
+        break;
+    case BCC:
+        bcc(effective_address, ctx);
+        break;
     case CMP:
         cmp(param_value, ctx);
         break;
@@ -391,26 +481,26 @@ void instruction_execute(Instruction instruction, uint16_t instruction_address,
     case RTI:
         rti(ctx, memory);
         break;
+    case ORA:
+        ora(param_value, ctx);
+        break;
+    case ASL:
+        asl(effective_address, instruction.addressing_mode == ACCUMULATOR, ctx,
+            memory);
+        break;
+    case LSR:
+        lsr(effective_address, instruction.addressing_mode == ACCUMULATOR, ctx,
+            memory);
+        break;
 
     case BRK:
     case BVC:
     case BVS:
     case CLV:
     case EOR:
-    case JSR:
-    case LSR:
     case NOP:
-    case ORA:
     case ROL:
     case ROR:
-    case RTS:
-    case TAX:
-    case TAY:
-    case TXA:
-    case TYA:
-    case ASL:
-    case BCC:
-    case BCS:
     case BEQ:
     case BMI:
         fprintf(stderr, "Unsupported 6502 instruction \"%s\"\n",

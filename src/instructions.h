@@ -41,20 +41,28 @@ void adc(uint8_t param, CPUContext *ctx);
 void sbc(uint8_t param, CPUContext *ctx);
 // AND memory with A register.
 void and (uint8_t param, CPUContext *ctx);
+// OR memory with A register.
+void ora(uint8_t param, CPUContext *ctx);
 // Set program counter to `address`.
 void jmp(uint16_t address, CPUContext *ctx);
+// Jump to subroutine (save return address and jump)
+void jsr(uint16_t address, CPUContext *ctx, Memory *memory);
+// Return from subroutine
+void rts(CPUContext *ctx, Memory *memory);
 // Transfer X -> stack pointer
 void txs(CPUContext *ctx);
 // Transfer stack pointer -> X
 void tsx(CPUContext *ctx);
-// Transfer accumulator -> X
+// Transfer A -> X
 void tax(CPUContext *ctx);
-// Transfer accumulator -> Y
+// Transfer A -> Y
 void tay(CPUContext *ctx);
-// Transfer X -> accumulator
+// Transfer X -> A
 void txa(CPUContext *ctx);
-// Transfer Y -> accumulator
+// Transfer Y -> A
 void tya(CPUContext *ctx);
+// Transfer A -> X
+void tax(CPUContext *ctx);
 // Push A register to stack
 void pha(CPUContext *ctx, Memory *memory);
 // Push status register to stack with bit 5 and break flag set.
@@ -87,6 +95,10 @@ void bit(uint8_t param, CPUContext *ctx);
 void bpl(uint16_t address, CPUContext *ctx);
 // Branch on status register flag zero == 0
 void bne(uint16_t address, CPUContext *ctx);
+// Branch on status register flag carry == 1
+void bcs(uint16_t address, CPUContext *ctx);
+// Branch on status register flag carry == 0
+void bcc(uint16_t address, CPUContext *ctx);
 // Compare memory with A register
 void cmp(uint8_t param, CPUContext *ctx);
 // Compare memory with X register
@@ -95,5 +107,11 @@ void cpx(uint8_t param, CPUContext *ctx);
 void cpy(uint8_t param, CPUContext *ctx);
 // Return from interrupt handler
 void rti(CPUContext *ctx, Memory *memory);
+// Arithmetic shift left, leftmost 'falling off' bit stored in carry bit
+void asl(uint16_t address, int using_accumulator, CPUContext *ctx,
+         Memory *memory);
+// Logical shift right, rightmost 'falling off' bit stored in carry bit
+void lsr(uint16_t address, int using_accumulator, CPUContext *ctx,
+         Memory *memory);
 
 #endif

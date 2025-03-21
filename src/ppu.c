@@ -111,8 +111,9 @@ void ppu_tick(PPUContext *ppu_ctx, uint32_t *framebuffer, int *out_nmi_needed) {
                                      0x000000ff};
         uint8_t sprite_pixel = evaluate_sprites(ppu_ctx);
 
-        framebuffer[ppu_ctx->current_scanline * PPU_VISIBLE_AREA_WIDTH +
-                    ppu_ctx->current_dot] = temp_palette[sprite_pixel];
+        if (framebuffer)
+            framebuffer[ppu_ctx->current_scanline * PPU_VISIBLE_AREA_WIDTH +
+                        ppu_ctx->current_dot] = temp_palette[sprite_pixel];
     }
 
     // Increment current dot and scanline

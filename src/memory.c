@@ -4,8 +4,7 @@
 #include <stdlib.h>
 
 // To abort with an error message if a non-implemented memory address is read or
-// written
-
+// written:
 // #define _STRICT_READ
 #define _STRICT_WRITE
 
@@ -31,6 +30,9 @@ uint8_t memory_read(Memory *memory, uint16_t address) {
 }
 
 void memory_write(Memory *memory, uint16_t address, uint8_t data) {
+    if (address >= 0x0200 && address <= 0x02ff)
+        asm("int $3");
+
     if (address <= 0x1fff) {
         memory->ram[address % MEMORY_RAM_SIZE] = data;
         return;
@@ -62,6 +64,15 @@ void memory_write(Memory *memory, uint16_t address, uint8_t data) {
     }
     if (address == 0x2007) {
         ppu_write_ppudata(data, &memory->ppu_ctx);
+        return;
+    }
+
+    // OAMDMA
+    if (address == 0x4014) {
+        for (uint16_t i = 0; i < 0x100; i++) {
+            ppu_write_oamdata(memory_read(memory, data << 8 | i),
+                              &memory->ppu_ctx);
+        }
         return;
     }
 

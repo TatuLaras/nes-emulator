@@ -9,7 +9,7 @@ CC = gcc
 PACKAGES = $(pkg-config --libs sdl3)
 CFLAGS_DEBUG = -Wall -ggdb -lSDL3 $(PACKAGES) -DDEBUG -I/usr/include/ 
 CFLAGS_TEST= -Wall -ggdb -I$(UNITY_DIR) -I$(SRC_DIR) -DTEST
-CFLAGS= -Wall -I/usr/include/ $(PACKAGES)
+CFLAGS= -Wall -I/usr/include/ -DNDEBUG $(PACKAGES)
 
 # Arguments to append to the program run with "make run"
 ARGS = 
